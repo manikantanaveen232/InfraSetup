@@ -11,7 +11,7 @@ pipeline {
 
         stage('Checkout Code') {
             steps {
-                git 'https://github.com/your-repo/terraform-eks.git'
+                git 'https://github.com/manikantanaveen232/InfraSetup.git'
             }
         }
 
