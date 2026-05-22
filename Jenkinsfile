@@ -28,7 +28,7 @@ pipeline {
             steps {
                 withCredentials([
                     [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'aws-creds']
+                     credentialsId: 'aws-jenkins-creds']
                 ]) {
                     sh '''
                         export AWS_REGION=us-east-1
@@ -48,7 +48,7 @@ pipeline {
             steps {
                 withCredentials([
                     [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'aws-creds']
+                     credentialsId: 'aws-jenkins-creds']
                 ]) {
                     sh '''
                         export AWS_REGION=us-east-1
@@ -63,7 +63,7 @@ pipeline {
                 input message: "Approve Terraform Apply?"
                 withCredentials([
                     [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'aws-creds']
+                     credentialsId: 'aws-jenkins-creds']
                 ]) {
                     sh '''
                         export AWS_REGION=us-east-1
