@@ -2,7 +2,8 @@ pipeline {
     agent any
 
     environment {
-        AWS_DEFAULT_REGION = 'us-east-1'
+        AWS_REGION = 'us-east-1'
+        TF_IN_AUTOMATION = 'true'
     }
 
     stages {
@@ -10,27 +11,29 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 git branch: 'main',
-                    url: 'https://github.com/manikantanaveen232/InfraSetup.git'
+                url: 'https://github.com/manikantanaveen232/InfraSetup.git'
             }
         }
 
-        stage('Cleanup Terraform Cache') {
+        stage('Clean Terraform Cache') {
             steps {
                 sh '''
-                rm -rf .terraform
-                rm -f .terraform.lock.hcl
+                    rm -rf .terraform
+                    rm -f .terraform.lock.hcl
                 '''
             }
         }
 
         stage('Terraform Init') {
             steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-jenkins-creds'
-                ]]) {
-
-                    sh 'terraform init -upgrade'
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'aws-creds']
+                ]) {
+                    sh '''
+                        export AWS_REGION=us-east-1
+                        terraform init -upgrade
+                    '''
                 }
             }
         }
@@ -43,48 +46,32 @@ pipeline {
 
         stage('Terraform Plan') {
             steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-jenkins-creds'
-                ]]) {
-
-                    sh 'terraform plan'
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'aws-creds']
+                ]) {
+                    sh '''
+                        export AWS_REGION=us-east-1
+                        terraform plan
+                    '''
                 }
             }
         }
 
         stage('Terraform Apply') {
             steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-jenkins-creds'
-                ]]) {
-
-                    sh 'terraform apply -auto-approve'
-                }
-            }
-        }
-
-        stage('Configure kubectl') {
-            steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-jenkins-creds'
-                ]]) {
-
+                input message: "Approve Terraform Apply?"
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'aws-creds']
+                ]) {
                     sh '''
-                    aws eks update-kubeconfig \
-                      --region us-east-1 \
-                      --name jenkins-eks
+                        export AWS_REGION=us-east-1
+                        terraform apply -auto-approve
                     '''
                 }
             }
         }
 
-        stage('Verify Cluster') {
-            steps {
-                sh 'kubectl get nodes'
-            }
-        }
     }
 }
