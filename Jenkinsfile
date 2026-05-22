@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        AWS_DEFAULT_REGION = 'ap-south-1'
+        AWS_DEFAULT_REGION = 'us-east-1'
     }
 
     stages {
@@ -48,7 +48,7 @@ pipeline {
             steps {
                 sh '''
                 aws eks update-kubeconfig \
-                  --region ap-south-1 \
+                  --region us-east-1 \
                   --name jenkins-eks
                 '''
             }
