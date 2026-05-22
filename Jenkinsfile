@@ -2,22 +2,27 @@ pipeline {
     agent any
 
     environment {
-        AWS_ACCESS_KEY_ID     = credentials('aws-jenkins-creds')
-        AWS_SECRET_ACCESS_KEY = credentials('aws-jenkins-creds')
-        AWS_DEFAULT_REGION    = 'us-east-1'
+        AWS_DEFAULT_REGION = 'ap-south-1'
     }
 
     stages {
 
         stage('Checkout Code') {
             steps {
-                git 'https://github.com/manikantanaveen232/InfraSetup.git'
+                git branch: 'main',
+                    url: 'https://github.com/manikantanaveen232/InfraSetup.git'
             }
         }
 
         stage('Terraform Init') {
             steps {
-                sh 'terraform init'
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-jenkins-creds'
+                ]]) {
+
+                    sh 'terraform init'
+                }
             }
         }
 
