@@ -4,9 +4,16 @@ pipeline {
     environment {
         AWS_REGION = 'us-east-1'
         TF_IN_AUTOMATION = 'true'
+        TF_WORKING_DIR = '.'
     }
 
     stages {
+
+        stage('Clean Workspace') {
+            steps {
+                deleteDir()
+            }
+        }
 
         stage('Checkout Code') {
             steps {
@@ -15,24 +22,15 @@ pipeline {
             }
         }
 
-        stage('Clean Terraform Cache') {
-            steps {
-                sh '''
-                    rm -rf .terraform
-                    rm -f .terraform.lock.hcl
-                '''
-            }
-        }
-
         stage('Terraform Init') {
             steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'aws-jenkins-creds']
-                ]) {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-jenkins-creds'
+                ]]) {
                     sh '''
-                        export AWS_REGION=us-east-1
-                        terraform init -upgrade
+                        cd $TF_WORKING_DIR
+                        terraform init -input=false
                     '''
                 }
             }
@@ -40,19 +38,22 @@ pipeline {
 
         stage('Terraform Validate') {
             steps {
-                sh 'terraform validate'
+                sh '''
+                    cd $TF_WORKING_DIR
+                    terraform validate
+                '''
             }
         }
 
         stage('Terraform Plan') {
             steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'aws-jenkins-creds']
-                ]) {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-jenkins-creds'
+                ]]) {
                     sh '''
-                        export AWS_REGION=us-east-1
-                        terraform plan
+                        cd $TF_WORKING_DIR
+                        terraform plan -out=tfplan
                     '''
                 }
             }
@@ -60,18 +61,27 @@ pipeline {
 
         stage('Terraform Apply') {
             steps {
-                input message: "Approve Terraform Apply?"
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'aws-jenkins-creds']
-                ]) {
+                input message: "Do you want to apply Terraform changes?"
+
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-jenkins-creds'
+                ]]) {
                     sh '''
-                        export AWS_REGION=us-east-1
-                        terraform apply -auto-approve
+                        cd $TF_WORKING_DIR
+                        terraform apply -auto-approve tfplan
                     '''
                 }
             }
         }
+    }
 
+    post {
+        always {
+            echo "Pipeline execution completed."
+        }
+        failure {
+            echo "Pipeline failed. Check logs."
+        }
     }
 }
