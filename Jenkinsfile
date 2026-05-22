@@ -43,23 +43,41 @@ pipeline {
 
         stage('Terraform Plan') {
             steps {
-                sh 'terraform plan'
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-jenkins-creds'
+                ]]) {
+
+                    sh 'terraform plan'
+                }
             }
         }
 
         stage('Terraform Apply') {
             steps {
-                sh 'terraform apply -auto-approve'
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-jenkins-creds'
+                ]]) {
+
+                    sh 'terraform apply -auto-approve'
+                }
             }
         }
 
         stage('Configure kubectl') {
             steps {
-                sh '''
-                aws eks update-kubeconfig \
-                  --region us-east-1 \
-                  --name jenkins-eks
-                '''
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-jenkins-creds'
+                ]]) {
+
+                    sh '''
+                    aws eks update-kubeconfig \
+                      --region us-east-1 \
+                      --name jenkins-eks
+                    '''
+                }
             }
         }
 
