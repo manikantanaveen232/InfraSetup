@@ -14,6 +14,15 @@ pipeline {
             }
         }
 
+        stage('Cleanup Terraform Cache') {
+            steps {
+                sh '''
+                rm -rf .terraform
+                rm -f .terraform.lock.hcl
+                '''
+            }
+        }
+
         stage('Terraform Init') {
             steps {
                 withCredentials([[
@@ -21,7 +30,7 @@ pipeline {
                     credentialsId: 'aws-jenkins-creds'
                 ]]) {
 
-                    sh 'terraform init'
+                    sh 'terraform init -upgrade'
                 }
             }
         }
