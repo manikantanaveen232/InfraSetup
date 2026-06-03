@@ -2,86 +2,98 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = 'us-east-1'
-        TF_IN_AUTOMATION = 'true'
-        TF_WORKING_DIR = '.'
+        AWS_DEFAULT_REGION = 'us-east-1'
     }
 
     stages {
 
-        stage('Clean Workspace') {
-            steps {
-                deleteDir()
-            }
-        }
-
-        stage('Checkout Code') {
+        stage('Checkout') {
             steps {
                 git branch: 'main',
-                url: 'https://github.com/manikantanaveen232/InfraSetup.git'
+                url: 'https://github.com/yourrepo/eks-terraform.git'
             }
         }
 
         stage('Terraform Init') {
             steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-jenkins-creds'
-                ]]) {
-                    sh '''
-                        cd $TF_WORKING_DIR
-                        terraform init -input=false
-                    '''
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-creds']
+                ]) {
+                    sh 'terraform init'
                 }
             }
         }
 
         stage('Terraform Validate') {
             steps {
-                sh '''
-                    cd $TF_WORKING_DIR
-                    terraform validate
-                '''
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-creds']
+                ]) {
+                    sh 'terraform validate'
+                }
             }
         }
 
         stage('Terraform Plan') {
             steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-jenkins-creds'
-                ]]) {
-                    sh '''
-                        cd $TF_WORKING_DIR
-                        terraform plan -out=tfplan
-                    '''
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-creds']
+                ]) {
+                    sh 'terraform plan -out=tfplan'
                 }
             }
         }
 
         stage('Terraform Apply') {
             steps {
-                input message: "Do you want to apply Terraform changes?"
+                input 'Approve EKS Creation?'
 
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-jenkins-creds'
-                ]]) {
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-creds']
+                ]) {
+                    sh 'terraform apply -auto-approve tfplan'
+                }
+            }
+        }
+
+        stage('Configure kubectl') {
+            steps {
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-creds']
+                ]) {
                     sh '''
-                        cd $TF_WORKING_DIR
-                        terraform apply -auto-approve tfplan
+                    aws eks update-kubeconfig \
+                      --name eks-prod \
+                      --region us-east-1
                     '''
+                }
+            }
+        }
+
+        stage('Verify Cluster') {
+            steps {
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-creds']
+                ]) {
+                    sh 'kubectl get nodes'
+                    sh 'kubectl get pods -A'
                 }
             }
         }
     }
 
     post {
-        always {
-            echo "Pipeline execution completed."
+        success {
+            echo 'EKS Cluster Created Successfully'
         }
         failure {
-            echo "Pipeline failed. Check logs."
+            echo 'Pipeline Failed'
         }
     }
 }
